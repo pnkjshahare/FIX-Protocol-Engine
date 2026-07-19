@@ -12,7 +12,8 @@ using namespace std;
 // =====================================================
 string Encoder::buildMessage(const stringstream &body)
 {
-    string soh = "|";
+    // string soh = "|";
+    string soh = "\x01";
 
     // Calculate BodyLength
     string bodyStr = body.str();
@@ -56,7 +57,8 @@ string Encoder::buildMessage(const stringstream &body)
 // =====================================================
 string Encoder::encode(const Order &order, Session &session)
 {
-    string soh = "|";
+    // string soh = "|";
+    string soh = "\x01";
 
     stringstream body;
 
@@ -117,7 +119,8 @@ string Encoder::encode(const Order &order, Session &session)
 // =====================================================
 string Encoder::encodeLogon(Session &session)
 {
-    string soh = "|";
+    // string soh = "|";
+    string soh = "\x01";
 
     stringstream body;
 
@@ -161,7 +164,8 @@ string Encoder::encodeLogon(Session &session)
 // =====================================================
 string Encoder::encodeHeartbeat(Session &session)
 {
-    string soh = "|";
+    // string soh = "|";
+    string soh = "\x01";
 
     stringstream body;
 
@@ -198,7 +202,8 @@ string Encoder::encodeHeartbeat(Session &session)
 // =====================================================
 string Encoder::encodeLogout(Session &session)
 {
-    string soh = "|";
+    // string soh = "|";
+    string soh = "\x01";
 
     stringstream body;
 

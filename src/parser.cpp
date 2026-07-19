@@ -2,8 +2,6 @@
 #include "fix_message.h"
 #include <sstream>
 
-// std::unordered_map<int, std::string>
-FixMessage messageObj;
 FixMessage Parser::parse(const std::string &message)
 {
     FixMessage messageObj;
@@ -11,8 +9,12 @@ FixMessage Parser::parse(const std::string &message)
     std::stringstream ss(message);
     std::string token;
 
-    while (std::getline(ss, token, '|'))
+    // Split using SOH delimiter
+    while (std::getline(ss, token, '\x01'))
     {
+        if (token.empty())
+            continue;
+
         size_t pos = token.find('=');
 
         if (pos == std::string::npos)
