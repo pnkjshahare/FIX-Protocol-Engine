@@ -6,6 +6,7 @@
 
 #include "message.h"
 #include "session.h"
+#include "execution_report.h"
 
 class Encoder
 {
@@ -21,6 +22,10 @@ public:
 
     // Logout (35=5)
     std::string encodeLogout(Session &session);
+    // Execution Report (35=8)
+    std::string encodeExecutionReport(
+        const ExecutionReport &report,
+        Session &session);
 
 private:
     // Common helper to build the complete FIX message

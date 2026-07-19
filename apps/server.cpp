@@ -8,7 +8,8 @@
 #include "message_validator.h"
 #include "encoder.h"
 #include "session.h"
-
+#include "execution_report.h"
+#include "tags.h"
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace std;
@@ -107,20 +108,27 @@ int main()
     Session session;
     Parser parser;
     Encoder encoder;
+    //--------------------------------
+    // Receive Messages
+    //--------------------------------
+    char buffer[2048];
 
-    //-------------------------------
-    // Receive Message
-    //-------------------------------
-    char buffer[2048] = {0};
-
-    int bytesReceived =
-        recv(clientSocket,
-             buffer,
-             sizeof(buffer) - 1,
-             0);
-
-    if (bytesReceived > 0)
+    while (true)
     {
+        memset(buffer, 0, sizeof(buffer));
+
+        int bytesReceived =
+            recv(clientSocket,
+                 buffer,
+                 sizeof(buffer) - 1,
+                 0);
+
+        if (bytesReceived <= 0)
+        {
+            cout << "\nClient Disconnected.\n";
+            break;
+        }
+
         buffer[bytesReceived] = '\0';
 
         string networkMessage(buffer);
@@ -129,19 +137,13 @@ int main()
         cout << " Received FIX Message\n";
         cout << "====================================\n";
 
-        // cout << networkMessage << endl;
         cout << formatForDisplay(networkMessage) << endl;
 
-        //---------------------------------------------------
-        // Convert | to SOH for parser
-        //---------------------------------------------------
-        string parserMessage = networkMessage;
-
-        //---------------------------------------------------
+        //--------------------------------
         // Parse
-        //---------------------------------------------------
+        //--------------------------------
         FixMessage fixMessage =
-            parser.parse(parserMessage);
+            parser.parse(networkMessage);
 
         cout << "\n====================================\n";
         cout << " Parsed FIX Message\n";
@@ -149,67 +151,132 @@ int main()
 
         fixMessage.print();
 
-        //---------------------------------------------------
+        //--------------------------------
         // Validate
-        //---------------------------------------------------
+        //--------------------------------
         string error;
 
-        if (MessageValidator::validate(
-                parserMessage,
+        if (!MessageValidator::validate(
+                networkMessage,
                 fixMessage,
                 error))
         {
-            cout << "\n====================================\n";
-            cout << " Validation Successful\n";
-            cout << "====================================\n";
+            cout << "\nValidation Failed\n";
+            cout << error << endl;
+            continue;
+        }
 
-            //---------------------------------------------------
-            // Update Session
-            //---------------------------------------------------
+        cout << "\nValidation Successful\n";
+
+        //--------------------------------
+        // Message Type
+        //--------------------------------
+        string msgType = fixMessage.getTag(35);
+
+        //--------------------------------
+        // Logon
+        //--------------------------------
+        if (msgType == "A")
+        {
+            cout << "\nProcessing Logon...\n";
+
             session.logon();
 
-            cout << "Client Logged In\n";
-
-            //---------------------------------------------------
-            // Create Logon ACK
-            //---------------------------------------------------
             string ack =
                 encoder.encodeLogon(session);
 
-            cout << "\n====================================\n";
-            cout << " Sending Logon ACK\n";
-            cout << "====================================\n";
-
-            // cout << ack << endl;
+            cout << "\nSending Logon ACK\n";
             cout << formatForDisplay(ack) << endl;
-            //---------------------------------------------------
-            // Send ACK
-            //---------------------------------------------------
-            int bytesSent =
-                send(clientSocket,
-                     ack.c_str(),
-                     ack.length(),
-                     0);
 
-            if (bytesSent == SOCKET_ERROR)
-            {
-                cout << "Failed to send ACK\n";
-            }
-            else
-            {
-                cout << "ACK Sent Successfully\n";
-            }
+            send(clientSocket,
+                 ack.c_str(),
+                 ack.length(),
+                 0);
         }
+
+        //--------------------------------
+        // New Order
+        //--------------------------------
+        else if (msgType == "D")
+        {
+            cout << "\nProcessing New Order...\n";
+
+            ExecutionReport report;
+
+            report.orderID = "ORDER0001";
+            report.execID = "EXEC0001";
+
+            report.clOrdID =
+                fixMessage.getTag(FIXTags::ClOrdID);
+
+            report.symbol =
+                fixMessage.getTag(FIXTags::Symbol);
+
+            report.side =
+                fixMessage.getTag(FIXTags::Side)[0];
+
+            report.quantity =
+                stoi(fixMessage.getTag(FIXTags::OrderQty));
+
+            report.price =
+                stod(fixMessage.getTag(FIXTags::Price));
+
+            report.execType = '0';
+
+            report.ordStatus = '0';
+
+            string response =
+                encoder.encodeExecutionReport(
+                    report,
+                    session);
+
+            cout << "\nSending Execution Report\n";
+
+            cout << formatForDisplay(response)
+                 << endl;
+
+            send(clientSocket,
+                 response.c_str(),
+                 response.length(),
+                 0);
+        }
+
+        //--------------------------------
+        // Heartbeat
+        //--------------------------------
+        else if (msgType == "0")
+        {
+            cout << "\nHeartbeat Received\n";
+        }
+
+        //--------------------------------
+        // Logout
+        //--------------------------------
+        else if (msgType == "5")
+        {
+            cout << "\nLogout Received\n";
+
+            string logoutAck =
+                encoder.encodeLogout(session);
+
+            send(clientSocket,
+                 logoutAck.c_str(),
+                 logoutAck.length(),
+                 0);
+
+            break;
+        }
+
+        //--------------------------------
+        // Unknown Message
+        //--------------------------------
         else
         {
-            cout << "\n====================================\n";
-            cout << " Validation Failed\n";
-            cout << "====================================\n";
-
-            cout << error << endl;
+            cout << "\nUnsupported MsgType : "
+                 << msgType
+                 << endl;
         }
     }
-
     //-------------------------------
     // Cleanup
     //-------------------------------

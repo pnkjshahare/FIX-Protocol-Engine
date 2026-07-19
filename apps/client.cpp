@@ -7,6 +7,7 @@
 #include "message_validator.h"
 #include "fix_message.h"
 #include "session.h"
+#include "message.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -116,6 +117,7 @@ int main()
              0);
 
     if (bytesReceived > 0)
+
     {
         buffer[bytesReceived] = '\0';
 
@@ -157,6 +159,94 @@ int main()
             cout << "\n====================================\n";
             cout << " Exchange Logon Successful\n";
             cout << "====================================\n";
+
+            //----------------------------------
+            // Create New Order
+            //----------------------------------
+            Order order;
+
+            order.clOrdID = "ORD000001";
+            order.symbol = "RELIANCE";
+            order.quantity = 100;
+            order.price = 2500.50;
+            order.side = '1'; // Buy
+
+            //----------------------------------
+            // Encode Order
+            //----------------------------------
+            string orderMessage =
+                encoder.encode(order, session);
+
+            cout << "\n====================================\n";
+            cout << " Sending New Order\n";
+            cout << "====================================\n";
+
+            cout << formatForDisplay(orderMessage) << endl;
+
+            //----------------------------------
+            // Send Order
+            //----------------------------------
+            send(clientSocket,
+                 orderMessage.c_str(),
+                 orderMessage.length(),
+                 0);
+
+            cout << "\nNew Order Sent Successfully\n";
+            //----------------------------------
+            // Receive Execution Report
+            //----------------------------------
+            char reportBuffer[2048] = {0};
+
+            int reportBytes =
+                recv(clientSocket,
+                     reportBuffer,
+                     sizeof(reportBuffer) - 1,
+                     0);
+
+            if (reportBytes > 0)
+            {
+                reportBuffer[reportBytes] = '\0';
+
+                string report(reportBuffer);
+
+                cout << "\n====================================\n";
+                cout << " Received Execution Report\n";
+                cout << "====================================\n";
+
+                cout << formatForDisplay(report) << endl;
+
+                //----------------------------------
+                // Parse
+                //----------------------------------
+                FixMessage execReport =
+                    parser.parse(report);
+
+                cout << "\n====================================\n";
+                cout << " Parsed Execution Report\n";
+                cout << "====================================\n";
+
+                execReport.print();
+
+                //----------------------------------
+                // Validate
+                //----------------------------------
+                string execError;
+
+                if (MessageValidator::validate(
+                        report,
+                        execReport,
+                        execError))
+                {
+                    cout << "\n====================================\n";
+                    cout << " Order Accepted By Exchange\n";
+                    cout << "====================================\n";
+                }
+                else
+                {
+                    cout << "\nExecution Report Invalid\n";
+                    cout << execError << endl;
+                }
+            }
         }
         else
         {
@@ -166,18 +256,13 @@ int main()
 
             cout << error << endl;
         }
+        //----------------------------------
+        // Cleanup
+        //----------------------------------
+        closesocket(clientSocket);
+
+        WSACleanup();
+
+        return 0;
     }
-    else
-    {
-        cout << "No ACK received from server.\n";
-    }
-
-    //----------------------------------
-    // Cleanup
-    //----------------------------------
-    closesocket(clientSocket);
-
-    WSACleanup();
-
-    return 0;
 }

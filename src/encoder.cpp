@@ -234,3 +234,84 @@ string Encoder::encodeLogout(Session &session)
 
     return buildMessage(body);
 }
+
+string Encoder::encodeExecutionReport(
+    const ExecutionReport &report,
+    Session &session)
+{
+    string soh = "\x01";
+
+    stringstream body;
+
+    appendTag(FIXTags::MsgType,
+              "8",
+              body,
+              soh);
+
+    appendTag(FIXTags::SenderCompID,
+              "EXCHANGE",
+              body,
+              soh);
+
+    appendTag(FIXTags::TargetCompID,
+              "CLIENT1",
+              body,
+              soh);
+
+    appendTag(FIXTags::MsgSeqNum,
+              session.getNextOutgoingSeqNum(),
+              body,
+              soh);
+
+    appendTag(FIXTags::SendingTime,
+              getCurrentUTCTime(),
+              body,
+              soh);
+
+    appendTag(FIXTags::OrderID,
+              report.orderID,
+              body,
+              soh);
+
+    appendTag(FIXTags::ExecID,
+              report.execID,
+              body,
+              soh);
+
+    appendTag(FIXTags::ClOrdID,
+              report.clOrdID,
+              body,
+              soh);
+
+    appendTag(FIXTags::Symbol,
+              report.symbol,
+              body,
+              soh);
+
+    appendTag(FIXTags::Side,
+              report.side,
+              body,
+              soh);
+
+    appendTag(FIXTags::OrderQty,
+              report.quantity,
+              body,
+              soh);
+
+    appendTag(FIXTags::Price,
+              report.price,
+              body,
+              soh);
+
+    appendTag(FIXTags::ExecType,
+              report.execType,
+              body,
+              soh);
+
+    appendTag(FIXTags::OrdStatus,
+              report.ordStatus,
+              body,
+              soh);
+
+    return buildMessage(body);
+}

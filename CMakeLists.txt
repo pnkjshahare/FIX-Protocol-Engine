@@ -21,6 +21,7 @@ add_library(FIXCore
     src/fix_message.cpp
     src/body_length.cpp
     src/session.cpp
+    src/execution_report.cpp
 )
 
 # ============================
