@@ -16,4 +16,7 @@ add_executable(FIXEngine
     src/validator.cpp
     src/checksum.cpp
     src/parser.cpp
+    src/message_validator.cpp
+    src/fix_message.cpp
+    src/body_length.cpp
 )

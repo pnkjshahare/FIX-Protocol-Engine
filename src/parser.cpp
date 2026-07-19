@@ -1,14 +1,14 @@
 #include "parser.h"
-
+#include "fix_message.h"
 #include <sstream>
 
-std::unordered_map<int, std::string>
-Parser::parse(const std::string &message)
+// std::unordered_map<int, std::string>
+FixMessage messageObj;
+FixMessage Parser::parse(const std::string &message)
 {
-    std::unordered_map<int, std::string> fields;
+    FixMessage messageObj;
 
     std::stringstream ss(message);
-
     std::string token;
 
     while (std::getline(ss, token, '|'))
@@ -19,11 +19,10 @@ Parser::parse(const std::string &message)
             continue;
 
         int tag = std::stoi(token.substr(0, pos));
-
         std::string value = token.substr(pos + 1);
 
-        fields[tag] = value;
+        messageObj.setTag(tag, value);
     }
 
-    return fields;
+    return messageObj;
 }

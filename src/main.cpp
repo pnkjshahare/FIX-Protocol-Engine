@@ -1,8 +1,11 @@
 #include <iostream>
+
 #include "message.h"
 #include "encoder.h"
 #include "validator.h"
 #include "parser.h"
+#include "message_validator.h"
+#include "body_length.h"
 using namespace std;
 
 int main()
@@ -19,11 +22,11 @@ int main()
     switch (choice)
     {
     case 1:
-        order.side = '1'; // FIX Side = Buy
+        order.side = '1'; // Buy
         break;
 
     case 2:
-        order.side = '2'; // FIX Side = Sell
+        order.side = '2'; // Sell
         break;
 
     default:
@@ -41,31 +44,46 @@ int main()
     cin >> order.price;
 
     order.clOrdID = "ORD000001";
-    std::string errorMessage;
+
+    // Validate Order
+    string errorMessage;
+
     if (!Validator::validate(order, errorMessage))
     {
-        cout << "Validation Error: " << errorMessage << endl;
+        cout << "\nValidation Error: " << errorMessage << endl;
         return 0;
     }
+
+    // Encode FIX Message
     Encoder encoder;
-
     string fixMessage = encoder.encode(order);
-
     cout << "\nGenerated FIX Message\n";
     cout << fixMessage << endl;
 
+    // Parse FIX Message
     Parser parser;
+    FixMessage msg = parser.parse(fixMessage);
 
-    auto fields = parser.parse(fixMessage);
     cout << "\nParsed Fields\n";
+    msg.print();
 
-    for (const auto &field : fields)
+    // Validate Parsed FIX Message
+    string error;
+
+    if (MessageValidator::validate(fixMessage, msg, error))
     {
-        std::cout << field.first
-                  << " -> "
-                  << field.second
-                  << std::endl;
+        cout << "\nFIX Message is VALID\n";
     }
+    else
+    {
+        cout << "\nValidation Failed : " << error << endl;
+    }
+    cout << endl;
+
+    cout
+        << "Calculated BodyLength = "
+        << BodyLength::calculate(fixMessage)
+        << endl;
 
     return 0;
 }
