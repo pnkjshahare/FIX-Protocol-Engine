@@ -1,18 +1,23 @@
 #include <iostream>
 
-#include "message.h"
-#include "encoder.h"
-#include "validator.h"
-#include "parser.h"
-#include "message_validator.h"
 #include "body_length.h"
+#include "encoder.h"
+#include "message.h"
+#include "message_validator.h"
+#include "parser.h"
+#include "session.h"
+#include "validator.h"
+
 using namespace std;
 
 int main()
 {
-    int choice;
     Order order;
+    int choice;
 
+    // =========================
+    // User Menu
+    // =========================
     cout << "========== Stock Trading ==========\n";
     cout << "1. Buy\n";
     cout << "2. Sell\n";
@@ -34,6 +39,9 @@ int main()
         return 0;
     }
 
+    // =========================
+    // Take Order Details
+    // =========================
     cout << "\nEnter Stock Name : ";
     cin >> order.symbol;
 
@@ -45,45 +53,157 @@ int main()
 
     order.clOrdID = "ORD000001";
 
+    // =========================
     // Validate Order
+    // =========================
     string errorMessage;
 
     if (!Validator::validate(order, errorMessage))
     {
-        cout << "\nValidation Error: " << errorMessage << endl;
+        cout << "\nValidation Error: "
+             << errorMessage << endl;
         return 0;
     }
 
-    // Encode FIX Message
+    // =========================
+    // Create Session
+    // =========================
+    Session session;
     Encoder encoder;
-    string fixMessage = encoder.encode(order);
-    cout << "\nGenerated FIX Message\n";
-    cout << fixMessage << endl;
-
-    // Parse FIX Message
     Parser parser;
-    FixMessage msg = parser.parse(fixMessage);
 
-    cout << "\nParsed Fields\n";
-    msg.print();
-
-    // Validate Parsed FIX Message
     string error;
 
-    if (MessageValidator::validate(fixMessage, msg, error))
+    // =====================================================
+    // LOGON MESSAGE
+    // =====================================================
+    string logonMessage = encoder.encodeLogon(session);
+
+    cout << "\n========== LOGON ==========\n";
+    cout << logonMessage << endl;
+
+    FixMessage logonFix = parser.parse(logonMessage);
+
+    cout << "\nParsed Logon Fields\n";
+    logonFix.print();
+
+    error.clear();
+
+    if (MessageValidator::validate(logonMessage, logonFix, error))
     {
-        cout << "\nFIX Message is VALID\n";
+        cout << "\nLogon Message is VALID\n";
     }
     else
     {
-        cout << "\nValidation Failed : " << error << endl;
+        cout << "\nValidation Failed: "
+             << error << endl;
     }
-    cout << endl;
 
-    cout
-        << "Calculated BodyLength = "
-        << BodyLength::calculate(fixMessage)
-        << endl;
+    cout << "\nCalculated BodyLength = "
+         << BodyLength::calculate(logonMessage)
+         << endl;
+
+    // =====================================================
+    // HEARTBEAT MESSAGE
+    // =====================================================
+    string heartbeatMessage =
+        encoder.encodeHeartbeat(session);
+
+    cout << "\n========== HEARTBEAT ==========\n";
+    cout << heartbeatMessage << endl;
+
+    FixMessage heartbeatFix =
+        parser.parse(heartbeatMessage);
+
+    cout << "\nParsed Heartbeat Fields\n";
+    heartbeatFix.print();
+
+    error.clear();
+
+    if (MessageValidator::validate(
+            heartbeatMessage,
+            heartbeatFix,
+            error))
+    {
+        cout << "\nHeartbeat Message is VALID\n";
+    }
+    else
+    {
+        cout << "\nValidation Failed: "
+             << error << endl;
+    }
+
+    cout << "\nCalculated BodyLength = "
+         << BodyLength::calculate(heartbeatMessage)
+         << endl;
+
+    // =====================================================
+    // NEW ORDER MESSAGE
+    // =====================================================
+    string orderMessage =
+        encoder.encode(order, session);
+
+    cout << "\n========== NEW ORDER ==========\n";
+    cout << orderMessage << endl;
+
+    FixMessage orderFix =
+        parser.parse(orderMessage);
+
+    cout << "\nParsed Order Fields\n";
+    orderFix.print();
+
+    error.clear();
+
+    if (MessageValidator::validate(
+            orderMessage,
+            orderFix,
+            error))
+    {
+        cout << "\nOrder Message is VALID\n";
+    }
+    else
+    {
+        cout << "\nValidation Failed: "
+             << error << endl;
+    }
+
+    cout << "\nCalculated BodyLength = "
+         << BodyLength::calculate(orderMessage)
+         << endl;
+
+    // =====================================================
+    // LOGOUT MESSAGE
+    // =====================================================
+    string logoutMessage =
+        encoder.encodeLogout(session);
+
+    cout << "\n========== LOGOUT ==========\n";
+    cout << logoutMessage << endl;
+
+    FixMessage logoutFix =
+        parser.parse(logoutMessage);
+
+    cout << "\nParsed Logout Fields\n";
+    logoutFix.print();
+
+    error.clear();
+
+    if (MessageValidator::validate(
+            logoutMessage,
+            logoutFix,
+            error))
+    {
+        cout << "\nLogout Message is VALID\n";
+    }
+    else
+    {
+        cout << "\nValidation Failed: "
+             << error << endl;
+    }
+
+    cout << "\nCalculated BodyLength = "
+         << BodyLength::calculate(logoutMessage)
+         << endl;
 
     return 0;
 }

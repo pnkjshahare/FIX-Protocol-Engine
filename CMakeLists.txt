@@ -19,4 +19,5 @@ add_executable(FIXEngine
     src/message_validator.cpp
     src/fix_message.cpp
     src/body_length.cpp
+    src/session.cpp
 )

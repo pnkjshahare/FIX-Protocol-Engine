@@ -1,6 +1,7 @@
 #include "message_validator.h"
 #include "body_length.h"
 #include "checksum.h"
+#include "tags.h"
 
 #include <vector>
 
@@ -9,42 +10,14 @@ bool MessageValidator::validate(
     const FixMessage &msg,
     std::string &error)
 {
-    std::vector<int> requiredTags =
-        {
-            8,  // BeginString
-            9,  // BodyLength
-            35, // MsgType
-            49, // SenderCompID
-            56, // TargetCompID
-            34, // MsgSeqNum
-            52, // SendingTime
-            11, // ClOrdID
-            55, // Symbol
-            54, // Side
-            38, // OrderQty
-            40, // OrdType
-            44, // Price
-            59, // TimeInForce
-            10  // CheckSum
-        };
+    // ----------------------------
+    // Validate BodyLength
+    // ----------------------------
+    int receivedBodyLength =
+        std::stoi(msg.getTag(FIXTags::BodyLength));
 
-    // ----------------------------
-    // Check required tags
-    // ----------------------------
-    for (int tag : requiredTags)
-    {
-        if (!msg.hasTag(tag))
-        {
-            error = "Missing Required Tag : " + std::to_string(tag);
-            return false;
-        }
-    }
-
-    // ----------------------------
-    // Validate BodyLength (Tag 9)
-    // ----------------------------
-    int receivedBodyLength = std::stoi(msg.getTag(9));
-    int calculatedBodyLength = BodyLength::calculate(rawMessage);
+    int calculatedBodyLength =
+        BodyLength::calculate(rawMessage);
 
     if (receivedBodyLength != calculatedBodyLength)
     {
@@ -53,12 +26,14 @@ bool MessageValidator::validate(
     }
 
     // ----------------------------
-    // Validate CheckSum (Tag 10)
+    // Validate CheckSum
     // ----------------------------
-    int receivedChecksum = std::stoi(msg.getTag(10));
-    // int calculatedChecksum = calculateChecksum(rawMessage);
+    int receivedChecksum =
+        std::stoi(msg.getTag(FIXTags::CheckSum));
+
     int calculatedChecksum =
         calculateChecksumForValidation(rawMessage);
+
     if (receivedChecksum != calculatedChecksum)
     {
         error = "Invalid CheckSum";
@@ -66,40 +41,183 @@ bool MessageValidator::validate(
     }
 
     // ----------------------------
-    // Validate MsgType
+    // Read MsgType
     // ----------------------------
-    if (msg.getTag(35) != "D")
+    std::string msgType =
+        msg.getTag(FIXTags::MsgType);
+
+    // ----------------------------
+    // Required Tags : Logon
+    // ----------------------------
+    std::vector<int> logonTags =
+        {
+            FIXTags::BeginString,
+            FIXTags::BodyLength,
+            FIXTags::MsgType,
+            FIXTags::SenderCompID,
+            FIXTags::TargetCompID,
+            FIXTags::MsgSeqNum,
+            FIXTags::SendingTime,
+            FIXTags::EncryptMethod,
+            FIXTags::HeartBtInt,
+            FIXTags::CheckSum};
+
+    // ----------------------------
+    // Required Tags : Heartbeat
+    // ----------------------------
+    std::vector<int> heartbeatTags =
+        {
+            FIXTags::BeginString,
+            FIXTags::BodyLength,
+            FIXTags::MsgType,
+            FIXTags::SenderCompID,
+            FIXTags::TargetCompID,
+            FIXTags::MsgSeqNum,
+            FIXTags::SendingTime,
+            FIXTags::CheckSum};
+
+    // ----------------------------
+    // Required Tags : Logout
+    // ----------------------------
+    std::vector<int> logoutTags =
+        {
+            FIXTags::BeginString,
+            FIXTags::BodyLength,
+            FIXTags::MsgType,
+            FIXTags::SenderCompID,
+            FIXTags::TargetCompID,
+            FIXTags::MsgSeqNum,
+            FIXTags::SendingTime,
+            FIXTags::CheckSum};
+
+    // ----------------------------
+    // Required Tags : New Order
+    // ----------------------------
+    std::vector<int> orderTags =
+        {
+            FIXTags::BeginString,
+            FIXTags::BodyLength,
+            FIXTags::MsgType,
+            FIXTags::SenderCompID,
+            FIXTags::TargetCompID,
+            FIXTags::MsgSeqNum,
+            FIXTags::SendingTime,
+            FIXTags::ClOrdID,
+            FIXTags::Symbol,
+            FIXTags::Side,
+            FIXTags::OrderQty,
+            FIXTags::OrdType,
+            FIXTags::Price,
+            FIXTags::TimeInForce,
+            FIXTags::CheckSum};
+
+    // ----------------------------
+    // Select Required Tag Set
+    // ----------------------------
+    const std::vector<int> *requiredTags = nullptr;
+
+    if (msgType == "A")
+    {
+        requiredTags = &logonTags;
+    }
+    else if (msgType == "0")
+    {
+        requiredTags = &heartbeatTags;
+    }
+    else if (msgType == "5")
+    {
+        requiredTags = &logoutTags;
+    }
+    else if (msgType == "D")
+    {
+        requiredTags = &orderTags;
+    }
+    else
     {
         error = "Unsupported MsgType";
         return false;
     }
 
     // ----------------------------
-    // Validate Quantity
+    // Validate Required Tags
     // ----------------------------
-    if (std::stoi(msg.getTag(38)) <= 0)
+    for (int tag : *requiredTags)
     {
-        error = "Invalid Quantity";
-        return false;
+        if (!msg.hasTag(tag))
+        {
+            error =
+                "Missing Required Tag : " +
+                std::to_string(tag);
+
+            return false;
+        }
+    }
+
+    // ====================================================
+    // Message Specific Validation
+    // ====================================================
+
+    // ----------------------------
+    // Logon Validation
+    // ----------------------------
+    if (msgType == "A")
+    {
+        if (msg.getTag(FIXTags::EncryptMethod) != "0")
+        {
+            error = "Invalid EncryptMethod";
+            return false;
+        }
+
+        if (std::stoi(msg.getTag(FIXTags::HeartBtInt)) <= 0)
+        {
+            error = "Invalid HeartBtInt";
+            return false;
+        }
     }
 
     // ----------------------------
-    // Validate Price
+    // Heartbeat Validation
     // ----------------------------
-    if (std::stod(msg.getTag(44)) <= 0)
+    if (msgType == "0")
     {
-        error = "Invalid Price";
-        return false;
+        // Nothing additional to validate.
+        // BodyLength, CheckSum and Required Tags
+        // are sufficient.
     }
 
     // ----------------------------
-    // Validate Side
+    // Logout Validation
     // ----------------------------
-    if (msg.getTag(54) != "1" &&
-        msg.getTag(54) != "2")
+    if (msgType == "5")
     {
-        error = "Invalid Side";
-        return false;
+        // Nothing additional to validate.
+        // BodyLength, CheckSum and Required Tags
+        // are sufficient.
+    }
+
+    // ----------------------------
+    // New Order Validation
+    // ----------------------------
+    if (msgType == "D")
+    {
+        if (std::stoi(msg.getTag(FIXTags::OrderQty)) <= 0)
+        {
+            error = "Invalid Quantity";
+            return false;
+        }
+
+        if (std::stod(msg.getTag(FIXTags::Price)) <= 0)
+        {
+            error = "Invalid Price";
+            return false;
+        }
+
+        if (msg.getTag(FIXTags::Side) != "1" &&
+            msg.getTag(FIXTags::Side) != "2")
+        {
+            error = "Invalid Side";
+            return false;
+        }
     }
 
     return true;

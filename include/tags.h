@@ -22,5 +22,8 @@ namespace FIXTags
 
     // Trailer
     constexpr int CheckSum = 10;
+
+    constexpr int EncryptMethod = 98;
+    constexpr int HeartBtInt = 108;
 }
 #endif // TAGS_H
