@@ -8,6 +8,7 @@ struct ExecutionReport
     std::string orderID;
     std::string execID;
     std::string clOrdID;
+    std::string origClOrdID;
     std::string symbol;
 
     char side;

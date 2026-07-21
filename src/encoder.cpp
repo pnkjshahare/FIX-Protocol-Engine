@@ -119,6 +119,13 @@ string Encoder::encode(const Order &order, Session &session)
 // =====================================================
 string Encoder::encodeLogon(Session &session)
 {
+    return encodeLogon(session, "CLIENT1", "EXCHANGE");
+}
+
+string Encoder::encodeLogon(Session &session,
+                            const string &senderCompID,
+                            const string &targetCompID)
+{
     // string soh = "|";
     string soh = "\x01";
 
@@ -127,12 +134,12 @@ string Encoder::encodeLogon(Session &session)
     appendTag(FIXTags::MsgType, "A", body, soh);
 
     appendTag(FIXTags::SenderCompID,
-              "CLIENT1",
+              senderCompID,
               body,
               soh);
 
     appendTag(FIXTags::TargetCompID,
-              "EXCHANGE",
+              targetCompID,
               body,
               soh);
 
@@ -164,6 +171,21 @@ string Encoder::encodeLogon(Session &session)
 // =====================================================
 string Encoder::encodeHeartbeat(Session &session)
 {
+    return encodeHeartbeat(session, "CLIENT1", "EXCHANGE");
+}
+
+string Encoder::encodeHeartbeat(Session &session,
+                                const string &senderCompID,
+                                const string &targetCompID)
+{
+    return encodeHeartbeat(session, senderCompID, targetCompID, "");
+}
+
+string Encoder::encodeHeartbeat(Session &session,
+                                const string &senderCompID,
+                                const string &targetCompID,
+                                const string &testReqID)
+{
     // string soh = "|";
     string soh = "\x01";
 
@@ -175,12 +197,12 @@ string Encoder::encodeHeartbeat(Session &session)
               soh);
 
     appendTag(FIXTags::SenderCompID,
-              "CLIENT1",
+              senderCompID,
               body,
               soh);
 
     appendTag(FIXTags::TargetCompID,
-              "EXCHANGE",
+              targetCompID,
               body,
               soh);
 
@@ -194,6 +216,169 @@ string Encoder::encodeHeartbeat(Session &session)
               body,
               soh);
 
+    if (!testReqID.empty())
+    {
+        appendTag(FIXTags::TestReqID,
+                  testReqID,
+                  body,
+                  soh);
+    }
+
+    return buildMessage(body);
+}
+
+string Encoder::encodeCancelOrder(const CancelOrderRequest &request,
+                                  Session &session)
+{
+    string soh = "\x01";
+
+    stringstream body;
+
+    appendTag(FIXTags::MsgType, "F", body, soh);
+    appendTag(FIXTags::SenderCompID, "CLIENT1", body, soh);
+    appendTag(FIXTags::TargetCompID, "EXCHANGE", body, soh);
+
+    appendTag(FIXTags::MsgSeqNum,
+              session.getNextOutgoingSeqNum(),
+              body,
+              soh);
+
+    appendTag(FIXTags::SendingTime,
+              getCurrentUTCTime(),
+              body,
+              soh);
+
+    appendTag(FIXTags::OrigClOrdID,
+              request.origClOrdID,
+              body,
+              soh);
+
+    appendTag(FIXTags::ClOrdID,
+              request.clOrdID,
+              body,
+              soh);
+
+    appendTag(FIXTags::Symbol,
+              request.symbol,
+              body,
+              soh);
+
+    appendTag(FIXTags::Side,
+              request.side,
+              body,
+              soh);
+
+    appendTag(FIXTags::OrderQty,
+              request.quantity,
+              body,
+              soh);
+
+    return buildMessage(body);
+}
+
+string Encoder::encodeModifyOrder(const ModifyOrderRequest &request,
+                                  Session &session)
+{
+    string soh = "\x01";
+
+    stringstream body;
+
+    appendTag(FIXTags::MsgType, "G", body, soh);
+    appendTag(FIXTags::SenderCompID, "CLIENT1", body, soh);
+    appendTag(FIXTags::TargetCompID, "EXCHANGE", body, soh);
+
+    appendTag(FIXTags::MsgSeqNum,
+              session.getNextOutgoingSeqNum(),
+              body,
+              soh);
+
+    appendTag(FIXTags::SendingTime,
+              getCurrentUTCTime(),
+              body,
+              soh);
+
+    appendTag(FIXTags::OrigClOrdID,
+              request.origClOrdID,
+              body,
+              soh);
+
+    appendTag(FIXTags::ClOrdID,
+              request.clOrdID,
+              body,
+              soh);
+
+    appendTag(FIXTags::Symbol,
+              request.symbol,
+              body,
+              soh);
+
+    appendTag(FIXTags::Side,
+              request.side,
+              body,
+              soh);
+
+    appendTag(FIXTags::OrderQty,
+              request.quantity,
+              body,
+              soh);
+
+    appendTag(FIXTags::OrdType,
+              2,
+              body,
+              soh);
+
+    appendTag(FIXTags::Price,
+              request.price,
+              body,
+              soh);
+
+    appendTag(FIXTags::TimeInForce,
+              0,
+              body,
+              soh);
+
+    return buildMessage(body);
+}
+
+string Encoder::encodeTestRequest(Session &session,
+                                  const string &senderCompID,
+                                  const string &targetCompID,
+                                  const string &testReqID)
+{
+    string soh = "\x01";
+
+    stringstream body;
+
+    appendTag(FIXTags::MsgType,
+              "1",
+              body,
+              soh);
+
+    appendTag(FIXTags::SenderCompID,
+              senderCompID,
+              body,
+              soh);
+
+    appendTag(FIXTags::TargetCompID,
+              targetCompID,
+              body,
+              soh);
+
+    appendTag(FIXTags::MsgSeqNum,
+              session.getNextOutgoingSeqNum(),
+              body,
+              soh);
+
+    appendTag(FIXTags::SendingTime,
+              getCurrentUTCTime(),
+              body,
+              soh);
+
+    appendTag(FIXTags::TestReqID,
+              testReqID,
+              body,
+              soh);
+
     return buildMessage(body);
 }
 
@@ -201,6 +386,13 @@ string Encoder::encodeHeartbeat(Session &session)
 // Logout (35=5)
 // =====================================================
 string Encoder::encodeLogout(Session &session)
+{
+    return encodeLogout(session, "CLIENT1", "EXCHANGE");
+}
+
+string Encoder::encodeLogout(Session &session,
+                             const string &senderCompID,
+                             const string &targetCompID)
 {
     // string soh = "|";
     string soh = "\x01";
@@ -213,12 +405,12 @@ string Encoder::encodeLogout(Session &session)
               soh);
 
     appendTag(FIXTags::SenderCompID,
-              "CLIENT1",
+              senderCompID,
               body,
               soh);
 
     appendTag(FIXTags::TargetCompID,
-              "EXCHANGE",
+              targetCompID,
               body,
               soh);
 
@@ -282,6 +474,14 @@ string Encoder::encodeExecutionReport(
               report.clOrdID,
               body,
               soh);
+
+    if (!report.origClOrdID.empty())
+    {
+        appendTag(FIXTags::OrigClOrdID,
+                  report.origClOrdID,
+                  body,
+                  soh);
+    }
 
     appendTag(FIXTags::Symbol,
               report.symbol,

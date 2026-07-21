@@ -1,317 +1,228 @@
-# High-Performance FIX Protocol Engine (C++20)
+# FIX Protocol Engine
 
-> A low-latency FIX 4.4 parser and encoder built from scratch in C++20 with a focus on performance, memory efficiency, and systems programming concepts used in High-Frequency Trading (HFT).
+A C++ FIX 4.4 learning project that demonstrates how a trading client and an exchange server communicate using real FIX tag-value messages over TCP.
 
----
+The project includes a FIX encoder, parser, message validator, session sequence handling, a simple exchange server, a client trading menu, execution reports, cancel/replace handling, heartbeat/test-request handling, and a local order book view.
 
-## 🎯 Project Goal
+## What This Project Shows
 
-The goal of this project is to build a production-inspired FIX engine capable of parsing, validating, encoding, and transmitting FIX messages with minimal latency and memory allocations.
+- Sending FIX messages from a client to an exchange server.
+- Receiving FIX responses from the server.
+- Parsing raw FIX messages into tag-value fields.
+- Validating `BodyLength` (`9`), `CheckSum` (`10`), required tags, and sequence numbers.
+- Handling session messages such as Logon, Heartbeat, Test Request, and Logout.
+- Handling application messages such as New Order Single, Cancel Order, Modify Order, and Execution Report.
+- Showing which FIX message is sent for each trading condition and what the server sends back.
 
-This project is designed as a learning exercise to understand how trading applications communicate with exchanges and to develop the low-level systems programming skills expected in HFT environments.
+## Screenshots
 
----
+### Client Sends Logon and Receives ACK
 
-# Learning Objectives
+The client starts a FIX session by sending a Logon message (`35=A`). The server validates it and sends a Logon ACK (`35=A`) back.
 
-By completing this project, I aim to understand:
+![Client sends logon and receives ACK](Images/1_client_Send_logon_receive_ack.png)
 
-* FIX Protocol fundamentals
-* Low-latency message parsing
-* Efficient message serialization
-* Memory management
-* Zero-copy programming
-* TCP socket programming
-* Performance optimization
-* Benchmarking and profiling
-* Session management
-* Cache-friendly programming
+### Server Sends ACK and Test Request
 
----
+The exchange server receives the client Logon, parses the fields, validates the message, sends the Logon ACK, and can send a Test Request (`35=1`) when no inbound message is received during the heartbeat interval.
 
-# Project Roadmap
+![Server sends ACK and test request](Images/2_server_send_ack_and_send_test_message.png)
 
-## Phase 1 — Learn FIX Protocol
+### Client Sends New Order
 
-### Functionality
+After logon, the client sends a New Order Single (`35=D`) containing order details such as `ClOrdID`, symbol, side, quantity, order type, price, and time-in-force.
 
-* Study the FIX 4.4 specification
-* Understand Tag=Value format
-* Understand SOH (`\x01`) delimiter
-* Learn Session Layer vs Application Layer
-* Learn common FIX messages
+![Client sends new order](Images/3_client_new_order.png)
 
-### Messages to Support
+### Server Receives New Order and Sends Execution Report
 
-* Logon
-* Heartbeat
-* Test Request
-* Logout
-* New Order Single
-* Order Cancel Request
-* Execution Report
-* Order Cancel Reject
-* Reject
+The server parses and validates the New Order Single. If valid, it stores the order in the exchange order book and sends an Execution Report (`35=8`) back to the client.
 
-### Concepts Learned
+![Server receives new order](Images/4_server_request_new_order.png)
 
-* Electronic trading workflow
-* Exchange communication
-* Financial messaging standards
+### Local Order Book
 
----
+The client keeps a local order book from the execution reports it receives from the server.
 
-## Phase 2 — FIX Parser
+![Local order book](Images/5_local_order_book.png)
 
-### Functionality
+## Message Flow
 
-* Parse raw FIX messages
-* Extract tags and values
-* Parse directly from input buffer
-* Handle malformed messages
-* Store parsed fields efficiently
+| Condition | Client Sends | Server Action | Server Sends Back |
+| --- | --- | --- | --- |
+| Start session | Logon (`35=A`) | Validates logon tags, body length, checksum, and sequence number | Logon ACK (`35=A`) |
+| Place order | New Order Single (`35=D`) | Stores order in server order book | Execution Report accepted (`35=8`, `150=0`, `39=0`) |
+| Cancel order | Order Cancel Request (`35=F`) | Searches order book using `OrigClOrdID` | Execution Report canceled (`150=4`, `39=4`) or rejected (`150=8`, `39=8`) |
+| Modify order | Order Cancel/Replace Request (`35=G`) | Searches order book and updates quantity/price | Execution Report replaced (`150=5`, `39=0`) or rejected (`150=8`, `39=8`) |
+| No message within heartbeat interval | Test Request (`35=1`) | Peer must prove session is alive | Heartbeat (`35=0`) with matching `112=TestReqID` |
+| End session | Logout (`35=5`) | Closes FIX session cleanly | Logout ACK (`35=5`) |
 
-### Concepts Learned
+## Supported FIX Messages
 
-* Pointer arithmetic
-* Character buffer processing
-* String parsing
-* Buffer management
-* Zero-copy parsing
-* Branch prediction
+| MsgType | Name | Direction |
+| --- | --- | --- |
+| `35=A` | Logon | Client to server, server to client |
+| `35=0` | Heartbeat | Client to server, server to client |
+| `35=1` | Test Request | Client to server, server to client |
+| `35=5` | Logout | Client to server, server to client |
+| `35=D` | New Order Single | Client to server |
+| `35=F` | Order Cancel Request | Client to server |
+| `35=G` | Order Cancel/Replace Request | Client to server |
+| `35=8` | Execution Report | Server to client |
 
----
+## Example FIX Messages
 
-## Phase 3 — FIX Encoder
+FIX uses ASCII `SOH` (`\x01`) as the field delimiter. For console readability, this project displays `SOH` as `|`.
 
-### Functionality
+### Logon Request
 
-* Generate FIX messages
-* Serialize C++ objects
-* Calculate BodyLength (Tag 9)
-* Calculate Checksum (Tag 10)
+```text
+8=FIX.4.4|9=66|35=A|49=CLIENT1|56=EXCHANGE|34=1|52=20260721-17:08:20|98=0|108=30|10=109|
+```
 
-### Concepts Learned
+Important fields:
 
-* Serialization
-* Buffer writing
-* Integer-to-string conversion
-* Protocol encoding
+| Tag | Meaning | Example |
+| --- | --- | --- |
+| `8` | BeginString | `FIX.4.4` |
+| `9` | BodyLength | `66` |
+| `35` | Message type | `A` |
+| `49` | SenderCompID | `CLIENT1` |
+| `56` | TargetCompID | `EXCHANGE` |
+| `34` | Message sequence number | `1` |
+| `52` | Sending time | `20260721-17:08:20` |
+| `98` | EncryptMethod | `0` |
+| `108` | HeartBtInt | `30` |
+| `10` | Checksum | `109` |
 
----
+### New Order Single
 
-## Phase 4 — Message Validation
+```text
+8=FIX.4.4|9=111|35=D|49=CLIENT1|56=EXCHANGE|34=2|52=20260721-17:08:20|11=ORD000001|55=RELIANCE|54=1|38=100|40=2|44=2500.5|59=0|10=162|
+```
 
-### Functionality
+Important fields:
 
-* Validate required tags
-* Validate message format
-* Reject invalid messages
-
-### Concepts Learned
-
-* Protocol validation
-* Error handling
-* Defensive programming
-
----
-
-## Phase 5 — Fast Field Lookup
-
-### Functionality
-
-* Efficient tag lookup
-* Compare different lookup strategies
-
-### Possible Implementations
-
-* `switch`
-* Lookup table
-* `unordered_map`
-* Perfect hashing (optional)
-
-### Concepts Learned
-
-* Hash tables
-* Cache-friendly data structures
-* Lookup optimization
-
----
-
-## Phase 6 — Zero-Copy Parsing
-
-### Functionality
-
-* Eliminate unnecessary string copies
-* Parse directly from receive buffer
-
-### Techniques
-
-* `std::string_view`
-* Raw pointers
-
-### Concepts Learned
-
-* Memory ownership
-* Object lifetime
-* Allocation-free programming
-
----
-
-## Phase 7 — Memory Pool
-
-### Functionality
-
-* Reuse message objects
-* Reduce heap allocations
-
-### Concepts Learned
-
-* Memory pool
-* Object pool
-* Cache locality
-* Custom allocators
-
----
-
-## Phase 8 — Benchmarking
-
-### Functionality
-
-Measure
-
-* Throughput
-* Latency
-* CPU cycles
-* Memory allocations
-
-### Tools
-
-* Google Benchmark
-* Linux `perf`
-* Valgrind
-
-### Concepts Learned
-
-* Performance profiling
-* Bottleneck analysis
-
----
-
-## Phase 9 — TCP Networking
-
-### Functionality
-
-* Send FIX messages
-* Receive FIX messages
-* Non-blocking communication
-
-### Concepts Learned
-
-* BSD sockets
-* TCP/IP
-* `send()`
-* `recv()`
-* Non-blocking I/O
-
----
-
-## Phase 10 — Session Layer
-
-### Functionality
-
-Implement
-
-* Logon
-* Heartbeat
-* Logout
-* Sequence Numbers
-* Resend Request
-
-### Concepts Learned
-
-* State machines
-* Session management
-* Connection lifecycle
-* Recovery mechanisms
-
----
-
-# Performance Goals
-
-* Zero-copy parsing
-* Minimal heap allocations
-* Cache-friendly data structures
-* Low-latency encoding
-* Efficient field lookup
-* High message throughput
-
----
-
-# Tech Stack
-
-* C++20
-* CMake
-* STL
-* Google Benchmark
-* Google Test (or Catch2)
-* Linux
-* Git
-* perf
-* Valgrind
-
----
-
-# Skills Gained
-
-* Modern C++
-* Systems Programming
-* Memory Management
-* Low-Latency Programming
-* FIX Protocol
-* Network Programming
-* Performance Optimization
-* Benchmarking
-* Cache Optimization
-* Profiling
-
----
-
-# Future Improvements
-
-* FIX Dictionary
-* Multiple FIX Versions
-* Asynchronous Networking
-* Multi-threaded Processing
-* Custom Memory Allocator
-* Binary Protocol Support
-* Market Data Messages
-* TLS Support
-* Replay & Recovery
-* Order Routing
-
----
-
-# Related Projects
-
-After completing this project, the next components of my HFT learning roadmap are:
-
-* High-Performance Order Book
-* Matching Engine
-* Lock-Free Ring Buffer
-* Market Data Feed Handler
-* Event Scheduler
-* Custom Memory Allocator
-* Backtesting Engine
-
-Together, these projects will form a complete low-latency trading system built entirely from scratch.
-
----
-
-# References
-
-* FIX Protocol 4.4 Specification
-* Modern C++ (C++20)
-* Linux Performance Tools (`perf`)
-* Google Benchmark
-* High-Performance Systems Programming Resources
+| Tag | Meaning | Example |
+| --- | --- | --- |
+| `35=D` | New Order Single | Client is placing an order |
+| `11` | ClOrdID | `ORD000001` |
+| `55` | Symbol | `RELIANCE` |
+| `54` | Side | `1` = Buy, `2` = Sell |
+| `38` | OrderQty | `100` |
+| `40` | OrdType | `2` = Limit |
+| `44` | Price | `2500.5` |
+| `59` | TimeInForce | `0` = Day |
+
+### Execution Report
+
+```text
+8=FIX.4.4|9=137|35=8|49=EXCHANGE|56=CLIENT1|34=2|52=20260721-17:08:20|37=ORDER0001|17=EXEC0001|11=ORD000001|55=RELIANCE|54=1|38=100|44=2500.5|150=0|39=0|10=061|
+```
+
+Important fields:
+
+| Tag | Meaning | Example |
+| --- | --- | --- |
+| `35=8` | Execution Report | Server response for order action |
+| `37` | OrderID | `ORDER0001` |
+| `17` | ExecID | `EXEC0001` |
+| `11` | ClOrdID | `ORD000001` |
+| `150` | ExecType | `0` = Accepted, `4` = Canceled, `5` = Modified, `8` = Rejected |
+| `39` | OrdStatus | `0` = New, `4` = Canceled, `8` = Rejected |
+
+## Parser and Validation
+
+The parser reads a raw FIX message, splits fields using the `SOH` delimiter, separates each field into `tag=value`, and stores the result in a `FixMessage` object.
+
+After parsing, the validator checks:
+
+- `BodyLength` matches the actual message body.
+- `CheckSum` matches the calculated checksum.
+- Required fields are present for the received `MsgType`.
+- Numeric fields such as quantity and price are valid.
+- Side is valid: `1` for Buy or `2` for Sell.
+- Execution reports use supported `ExecType` and `OrdStatus` values.
+- Session sequence numbers arrive in the expected order.
+
+## Project Structure
+
+```text
+.
+|-- apps/
+|   |-- client.cpp        # TCP FIX client and trading menu
+|   `-- server.cpp        # TCP exchange server
+|-- include/              # Public headers
+|-- src/                  # FIX parser, encoder, validator, session, order book
+|-- Images/               # README screenshots
+|-- CMakeLists.txt
+`-- README.md
+```
+
+## Build
+
+This project uses CMake and Winsock, so it is intended to run on Windows.
+
+```powershell
+cmake -S . -B build
+cmake --build build
+```
+
+The build creates:
+
+- `FIXServer`
+- `FIXClient`
+- `FIXEngine`
+
+## Run
+
+Start the exchange server first:
+
+```powershell
+.\build\FIXServer.exe
+```
+
+In another terminal, start the client:
+
+```powershell
+.\build\FIXClient.exe
+```
+
+Interactive client mode:
+
+```powershell
+.\build\FIXClient.exe --interactive
+```
+
+Useful client flags:
+
+| Flag | Behavior |
+| --- | --- |
+| `--interactive` | Opens the trading menu for new, cancel, modify, order book, and logout actions |
+| `--logout-after-report` | Sends Logout after receiving an execution report |
+| `--cancel-after-report` | Sends a cancel request after the first accepted execution report |
+| `--modify-after-report` | Sends a modify request after the first accepted execution report |
+
+## Current Features
+
+- FIX 4.4 message encoding.
+- FIX message parsing.
+- Body length calculation.
+- Checksum calculation and validation.
+- Required tag validation by message type.
+- Client/server TCP communication on `127.0.0.1:5001`.
+- Session sequence number validation.
+- Logon, heartbeat, test request, logout flow.
+- New order, cancel order, and modify order flow.
+- Exchange-side order book.
+- Client-side local order book built from execution reports.
+
+## Future Improvements
+
+- FIX dictionary driven validation.
+- More complete reject message handling.
+- Persistent order storage.
+- Non-blocking/asynchronous networking.
+- Cross-platform socket abstraction.
+- Unit tests and integration tests.
+- Benchmarking for parser and encoder latency.

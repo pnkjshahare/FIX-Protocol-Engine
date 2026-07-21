@@ -22,6 +22,7 @@ add_library(FIXCore
     src/body_length.cpp
     src/session.cpp
     src/execution_report.cpp
+    src/order_book.cpp
 )
 
 # ============================

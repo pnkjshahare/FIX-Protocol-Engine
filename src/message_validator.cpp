@@ -77,6 +77,21 @@ bool MessageValidator::validate(
             FIXTags::CheckSum};
 
     //--------------------------------------------------
+    // Required Tags : Test Request
+    //--------------------------------------------------
+    std::vector<int> testRequestTags =
+        {
+            FIXTags::BeginString,
+            FIXTags::BodyLength,
+            FIXTags::MsgType,
+            FIXTags::SenderCompID,
+            FIXTags::TargetCompID,
+            FIXTags::MsgSeqNum,
+            FIXTags::SendingTime,
+            FIXTags::TestReqID,
+            FIXTags::CheckSum};
+
+    //--------------------------------------------------
     // Required Tags : Logout
     //--------------------------------------------------
     std::vector<int> logoutTags =
@@ -102,6 +117,47 @@ bool MessageValidator::validate(
             FIXTags::TargetCompID,
             FIXTags::MsgSeqNum,
             FIXTags::SendingTime,
+            FIXTags::ClOrdID,
+            FIXTags::Symbol,
+            FIXTags::Side,
+            FIXTags::OrderQty,
+            FIXTags::OrdType,
+            FIXTags::Price,
+            FIXTags::TimeInForce,
+            FIXTags::CheckSum};
+
+    //--------------------------------------------------
+    // Required Tags : Cancel Order
+    //--------------------------------------------------
+    std::vector<int> cancelOrderTags =
+        {
+            FIXTags::BeginString,
+            FIXTags::BodyLength,
+            FIXTags::MsgType,
+            FIXTags::SenderCompID,
+            FIXTags::TargetCompID,
+            FIXTags::MsgSeqNum,
+            FIXTags::SendingTime,
+            FIXTags::OrigClOrdID,
+            FIXTags::ClOrdID,
+            FIXTags::Symbol,
+            FIXTags::Side,
+            FIXTags::OrderQty,
+            FIXTags::CheckSum};
+
+    //--------------------------------------------------
+    // Required Tags : Modify Order
+    //--------------------------------------------------
+    std::vector<int> modifyOrderTags =
+        {
+            FIXTags::BeginString,
+            FIXTags::BodyLength,
+            FIXTags::MsgType,
+            FIXTags::SenderCompID,
+            FIXTags::TargetCompID,
+            FIXTags::MsgSeqNum,
+            FIXTags::SendingTime,
+            FIXTags::OrigClOrdID,
             FIXTags::ClOrdID,
             FIXTags::Symbol,
             FIXTags::Side,
@@ -147,6 +203,10 @@ bool MessageValidator::validate(
     {
         requiredTags = &heartbeatTags;
     }
+    else if (msgType == "1")
+    {
+        requiredTags = &testRequestTags;
+    }
     else if (msgType == "5")
     {
         requiredTags = &logoutTags;
@@ -154,6 +214,14 @@ bool MessageValidator::validate(
     else if (msgType == "D")
     {
         requiredTags = &orderTags;
+    }
+    else if (msgType == "F")
+    {
+        requiredTags = &cancelOrderTags;
+    }
+    else if (msgType == "G")
+    {
+        requiredTags = &modifyOrderTags;
     }
     else if (msgType == "8")
     {
@@ -207,6 +275,18 @@ bool MessageValidator::validate(
     }
 
     //--------------------------------------------------
+    // Test Request Validation
+    //--------------------------------------------------
+    if (msgType == "1")
+    {
+        if (msg.getTag(FIXTags::TestReqID).empty())
+        {
+            error = "Invalid TestReqID";
+            return false;
+        }
+    }
+
+    //--------------------------------------------------
     // Logout Validation
     //--------------------------------------------------
     if (msgType == "5")
@@ -240,17 +320,78 @@ bool MessageValidator::validate(
     }
 
     //--------------------------------------------------
+    // Cancel Order Validation
+    //--------------------------------------------------
+    if (msgType == "F")
+    {
+        if (msg.getTag(FIXTags::OrigClOrdID).empty())
+        {
+            error = "Invalid OrigClOrdID";
+            return false;
+        }
+
+        if (std::stoi(msg.getTag(FIXTags::OrderQty)) <= 0)
+        {
+            error = "Invalid Quantity";
+            return false;
+        }
+
+        if (msg.getTag(FIXTags::Side) != "1" &&
+            msg.getTag(FIXTags::Side) != "2")
+        {
+            error = "Invalid Side";
+            return false;
+        }
+    }
+
+    //--------------------------------------------------
+    // Modify Order Validation
+    //--------------------------------------------------
+    if (msgType == "G")
+    {
+        if (msg.getTag(FIXTags::OrigClOrdID).empty())
+        {
+            error = "Invalid OrigClOrdID";
+            return false;
+        }
+
+        if (std::stoi(msg.getTag(FIXTags::OrderQty)) <= 0)
+        {
+            error = "Invalid Quantity";
+            return false;
+        }
+
+        if (std::stod(msg.getTag(FIXTags::Price)) <= 0)
+        {
+            error = "Invalid Price";
+            return false;
+        }
+
+        if (msg.getTag(FIXTags::Side) != "1" &&
+            msg.getTag(FIXTags::Side) != "2")
+        {
+            error = "Invalid Side";
+            return false;
+        }
+    }
+
+    //--------------------------------------------------
     // Execution Report Validation
     //--------------------------------------------------
     if (msgType == "8")
     {
-        if (msg.getTag(FIXTags::ExecType) != "0")
+        if (msg.getTag(FIXTags::ExecType) != "0" &&
+            msg.getTag(FIXTags::ExecType) != "4" &&
+            msg.getTag(FIXTags::ExecType) != "5" &&
+            msg.getTag(FIXTags::ExecType) != "8")
         {
             error = "Invalid ExecType";
             return false;
         }
 
-        if (msg.getTag(FIXTags::OrdStatus) != "0")
+        if (msg.getTag(FIXTags::OrdStatus) != "0" &&
+            msg.getTag(FIXTags::OrdStatus) != "4" &&
+            msg.getTag(FIXTags::OrdStatus) != "8")
         {
             error = "Invalid OrdStatus";
             return false;

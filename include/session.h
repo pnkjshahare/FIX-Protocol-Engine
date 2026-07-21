@@ -1,6 +1,8 @@
 #ifndef SESSION_H
 #define SESSION_H
 
+#include <string>
+
 class Session
 {
 private:
@@ -8,7 +10,9 @@ private:
 
     int outgoingSeqNum;
 
-    int incomingSeqNum;
+    int expectedIncomingSeqNum;
+
+    int heartBtInt;
 
 public:
     Session();
@@ -19,11 +23,17 @@ public:
 
     void logout();
 
+    void reset();
+
     int getNextOutgoingSeqNum();
 
-    void incrementIncomingSeqNum();
+    bool validateIncomingSeqNum(int receivedSeqNum, std::string &error);
 
     int getIncomingSeqNum() const;
+
+    int getHeartBtInt() const;
+
+    void setHeartBtInt(int seconds);
 };
 
 #endif

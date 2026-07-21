@@ -12,6 +12,7 @@ namespace FIXTags
 
     // Order Fields
     constexpr int ClOrdID = 11;
+    constexpr int OrigClOrdID = 41;
     constexpr int HandlInst = 21;
     constexpr int Symbol = 55;
     constexpr int Side = 54;
@@ -25,6 +26,7 @@ namespace FIXTags
 
     constexpr int EncryptMethod = 98;
     constexpr int HeartBtInt = 108;
+    constexpr int TestReqID = 112;
 
     constexpr int OrderID = 37;
     constexpr int ExecID = 17;
